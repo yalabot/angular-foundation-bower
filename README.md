@@ -1,2 +1,0 @@
-angular-foundation-bower
-========================
