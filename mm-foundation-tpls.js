@@ -2,10 +2,10 @@
  * angular-mm-foundation
  * http://madmimi.github.io/angular-foundation/
 
- * Version: 0.1.0 - 2014-02-05
+ * Version: 0.2.0 - 2014-05-05
  * License: MIT
  */
-angular.module("mm.foundation", ["mm.foundation.tpls", "mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.transition","mm.foundation.modal","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.tour","mm.foundation.typeahead"]);
+angular.module("mm.foundation", ["mm.foundation.tpls", "mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.tour","mm.foundation.typeahead"]);
 angular.module("mm.foundation.tpls", ["template/accordion/accordion-group.html","template/accordion/accordion.html","template/alert/alert.html","template/modal/backdrop.html","template/modal/window.html","template/pagination/pager.html","template/pagination/pagination.html","template/tooltip/tooltip-html-unsafe-popup.html","template/tooltip/tooltip-popup.html","template/popover/popover.html","template/progressbar/bar.html","template/progressbar/progress.html","template/progressbar/progressbar.html","template/rating/rating.html","template/tabs/tab.html","template/tabs/tabset.html","template/tour/tour.html","template/typeahead/typeahead-match.html","template/typeahead/typeahead-popup.html"]);
 angular.module('mm.foundation.accordion', [])
 
@@ -332,17 +332,16 @@ angular.module('mm.foundation.position', [])
   }]);
 
 /*
- * dropdownToggle - Provides dropdown menu functionality in place of bootstrap js
+ * dropdownToggle - Provides dropdown menu functionality
  * @restrict class or attribute
  * @example:
-   <li class="dropdown">
-     <a class="dropdown-toggle">My Dropdown Menu</a>
-     <ul class="dropdown-menu">
-       <li ng-repeat="choice in dropChoices">
-         <a ng-href="{{choice.href}}">{{choice.text}}</a>
-       </li>
-     </ul>
-   </li>
+
+   <a dropdown-toggle="#dropdown-menu">My Dropdown Menu</a>
+   <ul id="dropdown-menu" class="f-dropdown">
+     <li ng-repeat="choice in dropChoices">
+       <a ng-href="{{choice.href}}">{{choice.text}}</a>
+     </li>
+   </ul>
  */
 angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
 
@@ -358,9 +357,8 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
       var dropdown = angular.element($document[0].querySelector(scope.dropdownToggle));
 
       scope.$watch('$location.path', function() { closeMenu(); });
-      dropdown.css('display', 'none').bind('click', function() { closeMenu(); });
-      element.bind('click', function (event) {
-
+      element.bind('click', function (event) { 
+        dropdown = angular.element($document[0].querySelector(scope.dropdownToggle));
         var elementWasOpen = (element === openElement);
 
         event.preventDefault();
@@ -395,6 +393,10 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
           $document.bind('click', closeMenu);
         }
       });
+
+      if (dropdown) {
+        dropdown.css('display', 'none');
+      }
     }
   };
 }]);
@@ -856,6 +858,88 @@ angular.module('mm.foundation.modal', ['mm.foundation.transition'])
 
     return $modalProvider;
   });
+
+angular.module("mm.foundation.offcanvas", [])
+    .directive('offCanvasWrap', ['$window', function ($window) {
+        return {
+            scope: {},
+            restrict: 'C',
+            link: function ($scope, element, attrs) {
+                var win = angular.element($window);
+                var sidebar = $scope.sidebar = element;
+
+                $scope.hide = function () {
+                    sidebar.removeClass('move-left');
+                    sidebar.removeClass('move-right');
+                };
+
+                win.bind("resize.body", $scope.hide);
+
+                $scope.$on('$destroy', function() {
+                    win.unbind("resize.body", $scope.hide);
+                });
+
+            },
+            controller: ['$scope', function($scope) {
+
+                this.leftToggle = function() {
+                    $scope.sidebar.toggleClass("move-right");
+                };
+
+                this.rightToggle = function() {
+                    $scope.sidebar.toggleClass("move-left");
+                };
+
+                this.hide = function() {
+                    $scope.hide();
+                };
+            }]
+        };
+    }])
+    .directive('leftOffCanvasToggle', [function () {
+        return {
+            require: '^offCanvasWrap',
+            restrict: 'C',
+            link: function ($scope, element, attrs, offCanvasWrap) {
+                element.on('click', function () {
+                    offCanvasWrap.leftToggle();
+                });
+            }
+        };
+    }])
+    .directive('rightOffCanvasToggle', [function () {
+        return {
+            require: '^offCanvasWrap',
+            restrict: 'C',
+            link: function ($scope, element, attrs, offCanvasWrap) {
+                element.on('click', function () {
+                    offCanvasWrap.rightToggle();
+                });
+            }
+        };
+    }])
+       .directive('exitOffCanvas', [function () {
+        return {
+            require: '^offCanvasWrap',
+            restrict: 'C',
+            link: function ($scope, element, attrs, offCanvasWrap) {
+                element.on('click', function () {
+                    offCanvasWrap.hide();
+                });
+            }
+        };
+    }])
+    .directive('offCanvasList', [function () {
+        return {
+            require: '^offCanvasWrap',
+            restrict: 'C',
+            link: function ($scope, element, attrs, offCanvasWrap) {
+                element.on('click', function () {
+                    offCanvasWrap.hide();
+                });
+            }
+        };
+    }]);
 
 angular.module('mm.foundation.pagination', [])
 
@@ -2048,7 +2132,7 @@ angular.module( 'mm.foundation.tour', [ 'mm.foundation.position', 'mm.foundation
   };
 }])
 
-.directive( 'step', [ '$position', '$tooltip', '$tour', '$window', function ( $position, $tooltip, $tour, $window ) {
+.directive( 'stepText', [ '$position', '$tooltip', '$tour', '$window', function ( $position, $tooltip, $tour, $window ) {
   function isElementInViewport( element ) {
     var rect = element[0].getBoundingClientRect();
 
@@ -2443,7 +2527,7 @@ angular.module("template/accordion/accordion-group.html", []).run(["$templateCac
 
 angular.module("template/accordion/accordion.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("template/accordion/accordion.html",
-    "<dl class=\"accordion\" ng-transclude></div>\n" +
+    "<dl class=\"accordion\" ng-transclude></dl>\n" +
     "");
 }]);
 
@@ -2568,7 +2652,7 @@ angular.module("template/tabs/tabset.html", []).run(["$templateCache", function(
   $templateCache.put("template/tabs/tabset.html",
     "<div class=\"tabbable\">\n" +
     "  <dl class=\"tabs\" ng-class=\"{'vertical': vertical}\" ng-transclude></dl>\n" +
-    "  <div class=\"tabs-content\">\n" +
+    "  <div class=\"tabs-content\" ng-class=\"{'vertical': vertical}\">\n" +
     "    <div class=\"content\" \n" +
     "      ng-repeat=\"tab in tabs\" \n" +
     "      ng-class=\"{active: tab.active}\">\n" +
