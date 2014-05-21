@@ -2,7 +2,7 @@
  * angular-mm-foundation
  * http://madmimi.github.io/angular-foundation/
 
- * Version: 0.2.0 - 2014-05-05
+ * Version: 0.2.1 - 2014-05-20
  * License: MIT
  */
 angular.module("mm.foundation", ["mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.tour","mm.foundation.typeahead"]);
@@ -356,7 +356,7 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
       var dropdown = angular.element($document[0].querySelector(scope.dropdownToggle));
 
       scope.$watch('$location.path', function() { closeMenu(); });
-      element.bind('click', function (event) { 
+      element.bind('click', function (event) {
         dropdown = angular.element($document[0].querySelector(scope.dropdownToggle));
         var elementWasOpen = (element === openElement);
 
@@ -380,10 +380,6 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
 
           openElement = element;
           closeMenu = function (event) {
-            if (event) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
             $document.unbind('click', closeMenu);
             dropdown.css('display', 'none');
             closeMenu = angular.noop;
