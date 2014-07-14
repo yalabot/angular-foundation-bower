@@ -2,10 +2,10 @@
  * angular-mm-foundation
  * http://madmimi.github.io/angular-foundation/
 
- * Version: 0.2.2 - 2014-05-28
+ * Version: 0.3.0 - 2014-07-14
  * License: MIT
  */
-angular.module("mm.foundation", ["mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.tour","mm.foundation.typeahead"]);
+angular.module("mm.foundation", ["mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.interchange","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.topbar","mm.foundation.tour","mm.foundation.typeahead"]);
 angular.module('mm.foundation.accordion', [])
 
 .constant('accordionConfig', {
@@ -395,6 +395,287 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
     }
   };
 }]);
+
+/**
+ * @ngdoc service
+ * @name mm.foundation.interchange
+ * @description
+ *
+ * Package containing all services and directives
+ * about the `interchange` module
+ */
+angular.module('mm.foundation.interchange', [])
+
+  /**
+   * @ngdoc function
+   * @name mm.foundation.interchange.interchageQuery
+   * @function interchageQuery
+   * @description
+   *
+   * this service inject meta tags objects in the head
+   * to get the list of media queries from Foundation
+   * stylesheets.
+   *
+   * @return {object} Queries list name => mediaQuery
+   */
+  .factory('interchangeQueries', ['$document', function ($document) {
+    var element,
+      mediaSize,
+      formatList = {
+      'default': 'only screen',
+      landscape : 'only screen and (orientation: landscape)',
+      portrait : 'only screen and (orientation: portrait)',
+      retina : 'only screen and (-webkit-min-device-pixel-ratio: 2),' +
+        'only screen and (min--moz-device-pixel-ratio: 2),' +
+        'only screen and (-o-min-device-pixel-ratio: 2/1),' +
+        'only screen and (min-device-pixel-ratio: 2),' +
+        'only screen and (min-resolution: 192dpi),' +
+        'only screen and (min-resolution: 2dppx)'
+    },
+    classPrefix = 'foundation-mq-',
+    classList = ['small', 'medium', 'large', 'xlarge', 'xxlarge'],
+    head = angular.element($document[0].querySelector('head'));
+
+    for (var i = 0; i < classList.length; i++) {
+      head.append('<meta class="' + classPrefix + classList[i] + '" />');
+      element = getComputedStyle(head[0].querySelector('meta.' + classPrefix + classList[i]));
+      mediaSize = element.fontFamily.replace(/^[\/\\'"]+|(;\s?})+|[\/\\'"]+$/g, '');
+      formatList[classList[i]] = mediaSize;
+    }
+    return formatList;
+  }])
+
+  /**
+   * @ngdoc function
+   * @name mm.foundation.interchange.interchangeQueriesManager
+   * @function interchangeQueriesManager
+   * @description
+   *
+   * interface to add and remove named queries
+   * in the interchangeQueries list
+   */
+  .factory('interchangeQueriesManager', ['interchangeQueries', function (interchangeQueries) {
+    return {
+      /**
+       * @ngdoc method
+       * @name interchangeQueriesManager#add
+       * @methodOf mm.foundation.interchange.interchangeQueriesManager
+       * @description
+       *
+       * Add a custom media query in the `interchangeQueries`
+       * factory. This method does not allow to update an existing
+       * media query.
+       *
+       * @param {string} name MediaQuery name
+       * @param {string} media MediaQuery
+       * @returns {boolean} True if the insert is a success
+       */
+      add: function (name, media) {
+        if (!name || !media ||
+          !angular.isString(name) || !angular.isString(media) ||
+          !!interchangeQueries[name]) {
+          return false;
+        }
+        interchangeQueries[name] = media;
+        return true;
+      }
+    };
+  }])
+
+  /**
+   * @ngdoc function
+   * @name mm.foundation.interchange.interchangeTools
+   * @function interchangeTools
+   * @description
+   *
+   * Tools to help with the `interchange` module.
+   */
+  .factory('interchangeTools', ['$window', 'interchangeQueries', function ($window, namedQueries) {
+
+    /**
+     * @ngdoc method
+     * @name interchangeTools#parseAttribute
+     * @methodOf mm.foundation.interchange.interchangeTools
+     * @description
+     *
+     * Attribute parser to transform an `interchange` attribute
+     * value to an object with media query (name or query) as key,
+     * and file to use as value.
+     *
+     * ```
+     * {
+     *   small: 'bridge-500.jpg',
+     *   large: 'bridge-1200.jpg'
+     * }
+     * ```
+     *
+     * @param {string} value Interchange query string
+     * @returns {object} Attribute parsed
+     */
+    var parseAttribute = function (value) {
+      var raw = value.split(/\[(.*?)\]/),
+        i = raw.length,
+        breaker = /^(.+)\,\ \((.+)\)$/,
+        breaked,
+        output = {};
+
+      while (i--) {
+        if (raw[i].replace(/[\W\d]+/, '').length > 4) {
+          breaked = breaker.exec(raw[i]);
+          if (!!breaked && breaked.length === 3) {
+            output[breaked[2]] = breaked[1];
+          }
+        }
+      }
+      return output;
+    };
+
+    /**
+     * @ngdoc method
+     * @name interchangeTools#findCurrentMediaFile
+     * @methodOf mm.foundation.interchange.interchangeTools
+     * @description
+     *
+     * Find the current item to display from a file list
+     * (object returned by `parseAttribute`) and the
+     * current page dimensions.
+     *
+     * ```
+     * {
+     *   small: 'bridge-500.jpg',
+     *   large: 'bridge-1200.jpg'
+     * }
+     * ```
+     *
+     * @param {object} files Parsed version of `interchange` attribute
+     * @returns {string} File to display (or `undefined`)
+     */
+    var findCurrentMediaFile = function (files) {
+      var file, media, match;
+      for (file in files) {
+        media = namedQueries[file] || file;
+        match = $window.matchMedia(media);
+        if (match.matches) {
+          return files[file];
+        }
+      }
+      return;
+    };
+
+    return {
+      parseAttribute: parseAttribute,
+      findCurrentMediaFile: findCurrentMediaFile
+    };
+  }])
+
+  /**
+   * @ngdoc directive
+   * @name mm.foundation.interchange.directive:interchange
+   * @restrict A
+   * @element DIV|IMG
+   * @priority 450
+   * @scope true
+   * @description
+   *
+   * Interchange directive, following the same features as
+   * ZURB documentation. The directive is splitted in 3 parts.
+   *
+   * 1. This directive use `compile` and not `link` for a simple
+   * reason: if the method is applied on a DIV element to
+   * display a template, the compile method will inject an ng-include.
+   * Because using a `templateUrl` or `template` to do it wouldn't
+   * be appropriate for all cases (`IMG` or dynamic backgrounds).
+   * And doing it in `link` is too late to be applied.
+   *
+   * 2. In the `compile:post`, the attribute is parsed to find
+   * out the type of content to display.
+   *
+   * 3. At the start and on event `resize`, the method `replace`
+   * is called to reevaluate which file is supposed to be displayed
+   * and update the value if necessary. The methd will also
+   * trigger a `replace` event.
+   */
+  .directive('interchange', ['$window', '$rootScope', 'interchangeTools', function ($window, $rootScope, interchangeTools) {
+
+    var pictureFilePattern = /[A-Za-z0-9-_]+\.(jpg|jpeg|png|gif|bmp|tiff)\ *,/i;
+
+    return {
+      restrict: 'A',
+      scope: true,
+      priority: 450,
+      compile: function compile($element, attrs) {
+        // Set up the attribute to update
+        if ($element[0].nodeName === 'DIV' && !pictureFilePattern.test(attrs.interchange)) {
+          $element.html('<ng-include src="currentFile"></ng-include>');
+        }
+
+        return {
+          pre: function preLink($scope, $element, attrs) {},
+          post: function postLink($scope, $element, attrs) {
+            var currentFile, nodeName;
+
+            // Set up the attribute to update
+            nodeName = $element && $element[0] && $element[0].nodeName;
+            $scope.fileMap = interchangeTools.parseAttribute(attrs.interchange);
+
+            // Find the type of interchange
+            switch (nodeName) {
+            case 'DIV':
+              // If the tag is a div, we test the current file to see if it's picture
+              currentFile = interchangeTools.findCurrentMediaFile($scope.fileMap);
+              if (/[A-Za-z0-9-_]+\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(currentFile)) {
+                $scope.type = 'background';
+              }
+              else {
+                $scope.type = 'include';
+              }
+              break;
+
+            case 'IMG':
+              $scope.type = 'image';
+              break;
+
+            default:
+              return;
+            }
+
+            var replace = function (e) {
+              // The the new file to display (exit if the same)
+              var currentFile = interchangeTools.findCurrentMediaFile($scope.fileMap);
+              if (!!$scope.currentFile && $scope.currentFile === currentFile) {
+                return;
+              }
+
+              // Set up the new file
+              $scope.currentFile = currentFile;
+              switch ($scope.type) {
+              case 'image':
+                $element.attr('src', $scope.currentFile);
+                break;
+
+              case 'background':
+                $element.css('background-image', 'url(' + $scope.currentFile + ')');
+                break;
+              }
+
+              // Trigger events
+              $rootScope.$emit('replace', $element, $scope);
+              if (!!e) {
+                $scope.$apply();
+              }
+            };
+
+            // Start
+            replace();
+            $window.addEventListener('resize', replace);
+            $scope.$on('$destroy', function () {
+              $window.removeEventListener('resize', replace);
+            });
+          }
+        };
+      }
+    };
+  }]);
 
 angular.module('mm.foundation.transition', [])
 
@@ -2054,6 +2335,493 @@ angular.module('mm.foundation.tabs', [])
 
 ;
 
+
+angular.module("mm.foundation.topbar", [])
+    .factory('closest', [function(){
+        return function(el, selector) {
+            var matchesSelector = function (node, selector) {
+                var nodes = (node.parentNode || node.document).querySelectorAll(selector);
+                var i = -1;
+                while (nodes[++i] && nodes[i] != node){}
+                return !!nodes[i];
+            };
+
+            var element = el[0];
+            while (element) {
+                if (matchesSelector(element, selector)) {
+                    return angular.element(element);
+                } else {
+                    element = element.parentElement;
+                }
+            }
+            return false;
+        };
+    }])
+    .directive('topBar', ['$timeout','$compile', '$window', '$document',
+        function ($timeout, $compile, $window, $document) {
+
+        var win = angular.element($window);
+        var head = angular.element($document[0].querySelector('head'));
+
+        head.append('<meta class="foundation-mq-topbar" />');
+        head.append('<meta class="foundation-mq-small" />');
+        head.append('<meta class="foundation-mq-medium" />');
+        head.append('<meta class="foundation-mq-large" />');
+
+        // MatchMedia for IE < 9
+        var matchMedia = $window.matchMedia || (function( doc, undefined ) {
+            var bool,
+                docElem = doc.documentElement,
+                refNode = docElem.firstElementChild || docElem.firstChild,
+                // fakeBody required for <FF4 when executed in <head>
+                fakeBody = doc.createElement( "body" ),
+                div = doc.createElement( "div" );
+
+            div.id = "mq-test-1";
+            div.style.cssText = "position:absolute;top:-100em";
+            fakeBody.style.background = "none";
+            fakeBody.appendChild(div);
+
+            return function (q) {
+                div.innerHTML = "&shy;<style media=\"" + q + "\"> #mq-test-1 { width: 42px; }</style>";
+
+                docElem.insertBefore( fakeBody, refNode );
+                bool = div.offsetWidth === 42;
+                docElem.removeChild( fakeBody );
+
+                return {
+                    matches: bool,
+                    media: q
+                };
+
+            };
+
+        }( $document[0] ));
+
+        return {
+            scope: {
+                stickyClass : '@',
+                backText: '@',
+                stickyOn : '=',
+                customBackText: '=',
+                isHover: '=',
+                mobileShowParentLink: '=',
+                scrolltop : '=',
+            },
+            restrict: 'EA',
+            replace: true,
+            templateUrl: 'template/topbar/top-bar.html',
+            transclude: true,
+            link: function ($scope, element, attrs) {
+                var topbar = $scope.topbar = element;
+                var topbarContainer = topbar.parent();
+                var regex = /^[\/\\'"]+|(;\s?})+|[\/\\'"]+$/g;
+                var mediaQueries = $scope.mediaQueries = {
+                    topbar: getComputedStyle(head[0].querySelector('meta.foundation-mq-topbar')).fontFamily.replace(regex, ''),
+                    small : getComputedStyle(head[0].querySelector('meta.foundation-mq-small')).fontFamily.replace(regex, ''),
+                    medium : getComputedStyle(head[0].querySelector('meta.foundation-mq-medium')).fontFamily.replace(regex, ''),
+                    large : getComputedStyle(head[0].querySelector('meta.foundation-mq-large')).fontFamily.replace(regex, '')
+                };
+                var body = angular.element($document[0].querySelector('body'));
+
+
+                var isSticky = $scope.isSticky = function () {
+                    var sticky = topbarContainer.hasClass($scope.settings.stickyClass);
+                    if (sticky && $scope.settings.stickyOn === 'all') {
+                        return true;
+                    } else if (sticky && small() && $scope.settings.stickyOn === 'small') {
+                        return true;
+                    } else if (sticky && medium() && $scope.settings.stickyOn === 'medium') {
+                        return true;
+                    } else if (sticky && large() && $scope.settings.stickyOn === 'large') {
+                        return true;
+                    }
+                    return false;
+                };
+
+                var updateStickyPositioning = function(){
+                    if (!$scope.stickyTopbar || !$scope.isSticky()) {
+                        return;
+                    }
+                    
+                    var $class = angular.element($document[0].querySelector('.' + $scope.settings.stickyClass));
+
+                    var distance = stickyoffset;
+                    if (true) {
+                        if (win.scrollTop() > distance && !$class.hasClass('fixed')) {
+                            $class.addClass('fixed');
+                            body.css('padding-top', $scope.originalHeight + 'px');
+                        } else if (win.scrollTop() <= distance && $class.hasClass('fixed')) {
+                            $class.removeClass('fixed');
+                            body.css('padding-top', '');
+                        }
+                    }  
+                };
+
+                $scope.toggle = function(on) {
+                    if(!$scope.breakpoint()){
+                        return false;
+                    }
+                    
+                    var expand = (on === undefined) ? !topbar.hasClass('expanded') : on;
+
+                    if (expand){
+                        topbar.addClass('expanded');
+                    }
+                    else {
+                        topbar.removeClass('expanded');
+                    }
+
+                    if ($scope.settings.scrolltop) {
+                        if (!expand && topbar.hasClass('fixed')) {
+                            topbar.parent().addClass('fixed');
+                            topbar.removeClass('fixed');
+                            body.css('padding-top', $scope.originalHeight + 'px');
+                        } else if (expand && topbar.parent().hasClass('fixed')) {
+                            topbar.parent().removeClass('fixed');
+                            topbar.addClass('fixed');
+                            body.css('padding-top', '');
+                            $window.scrollTo(0,0);
+                        }
+                    } else {
+                        if(isSticky()) {
+                            topbar.parent().addClass('fixed');
+                        }
+
+                        if(topbar.parent().hasClass('fixed')) {
+                            if (!expand) {
+                                topbar.removeClass('fixed');
+                                topbar.parent().removeClass('expanded');
+                                updateStickyPositioning();
+                            } else {
+                                topbar.addClass('fixed');
+                                topbar.parent().addClass('expanded');
+                                body.css('padding-top', $scope.originalHeight + 'px');
+                            }
+                        }
+                    }
+                };
+
+                if(topbarContainer.hasClass('fixed') || isSticky() ) {
+                    $scope.stickyTopbar = true;
+                    $scope.height = topbarContainer[0].offsetHeight;
+                    var stickyoffset = topbarContainer[0].getBoundingClientRect().top;
+                } else {
+                    $scope.height = topbar[0].offsetHeight;
+                }
+
+                $scope.originalHeight = $scope.height;
+
+                $scope.$watch('height', function(h){
+                    if(h){
+                        topbar.css('height', h + 'px');
+                    } else {
+                        topbar.css('height', '');
+                    }
+                });
+
+                win.bind('resize', function(){
+                    var sections = angular.element(topbar[0].querySelectorAll('section'));
+                    angular.forEach(sections, function(section){
+                        angular.element(section.querySelectorAll('li.moved')).removeClass('moved');
+                    });
+                    topbar.removeClass('expanded');
+                    $scope.height = '';
+                    $scope.$apply();
+                });
+
+                // update sticky positioning
+                win.bind("scroll", function() {
+                    updateStickyPositioning();
+                    $scope.$apply();
+                });
+
+                $scope.$on('$destroy', function(){
+                    win.unbind("scroll");
+                    win.unbind("resize");
+                });
+
+                if (topbarContainer.hasClass('fixed')) {
+                    body.css('padding-top', $scope.originalHeight + 'px');
+                }
+
+            },
+            controller: ['$window', '$scope', 'closest', function($window, $scope, closest) {
+            
+                $scope.settings = {};
+                $scope.settings.stickyClass = $scope.stickyClass || 'sticky';
+                $scope.settings.backText = $scope.backText || 'Back';
+                $scope.settings.stickyOn = $scope.stickyOn || 'all';
+
+                $scope.settings.customBackText = $scope.customBackText === undefined ? true : $scope.customBackText;
+                $scope.settings.isHover = $scope.isHover === undefined ? true : $scope.isHover;
+                $scope.settings.mobileShowParentLink = $scope.mobileShowParentLink === undefined ? true : $scope.mobileShowParentLink;
+                $scope.settings.scrolltop = $scope.scrolltop === undefined ? true : $scope.scrolltop; // jump to top when sticky nav menu toggle is clicked
+
+                this.settings = $scope.settings;
+
+                $scope.index = 0;
+
+                var outerHeight = function(el){
+                    var height = el.offsetHeight;
+                    var style = el.currentStyle || getComputedStyle(el);
+
+                    height += parseInt(style.marginTop, 10) + parseInt(style.marginBottom, 10);
+                    return height;
+                };
+
+                var breakpoint = $scope.breakpoint = this.breakpoint = function () {
+                    return !matchMedia($scope.mediaQueries.topbar).matches;
+                };
+
+                var small = function () {
+                    return $matchMedia($scope.mediaQueries.small).matches;
+                };
+
+                var medium = function () {
+                    return $matchMedia($scope.mediaQueries.medium).matches;
+                };
+
+                var large = function () {
+                    return $matchMedia($scope.mediaQueries.large).matches;
+                };
+
+                var sections = [];
+
+                this.addSection = function(section){
+                    sections.push(section);
+                };
+
+                this.removeSection = function(section){
+                    var index = sections.indexOf(section);
+                    if (index > -1) {
+                        sections.splice(index, 1);
+                    }
+                };
+
+                var dir = /rtl/i.test($document.find('html').attr('dir')) ? 'right' : 'left';
+
+                $scope.$watch('index', function(index){
+                    for(var i = 0; i < sections.length; i++){
+                        sections[i].move(dir, index);
+                    }
+                });
+
+                this.toggle = function(on){
+                    $scope.toggle(on);
+                    for(var i = 0; i < sections.length; i++){
+                        sections[i].reset();
+                    }
+                    $scope.index = 0;
+                    $scope.height = '';
+                    $scope.$apply();
+                };
+
+                this.back = function(event) {
+                    if($scope.index < 1 || !breakpoint()){
+                        return;
+                    }
+                    
+                    var $link = angular.element(event.currentTarget);
+                    var $movedLi = closest($link, 'li.moved');
+                    var $previousLevelUl = $movedLi.parent();
+                    $scope.index = $scope.index -1;
+
+                    if($scope.index === 0){
+                        $scope.height = '';
+                    } else {
+                        $scope.height = $scope.originalHeight + outerHeight($previousLevelUl[0]);
+                    }
+
+                    $timeout(function () {
+                        $movedLi.removeClass('moved');
+                    }, 300);
+                };
+
+                this.forward = function(event) {
+                    if(!breakpoint()){
+                        return false;
+                    }
+
+                    var $link = angular.element(event.currentTarget);
+                    var $selectedLi = closest($link, 'li');
+                    $selectedLi.addClass('moved');
+                    $scope.height = $scope.originalHeight + outerHeight($link.parent()[0].querySelector('ul'));
+                    $scope.index = $scope.index + 1;
+                    $scope.$apply();
+                };
+
+            }]
+        };
+    }])
+    .directive('toggleTopBar', ['closest', function (closest) {
+        return {
+            scope: {},
+            require: '^topBar',
+            restrict: 'A',
+            replace: true,
+            templateUrl: 'template/topbar/toggle-top-bar.html',
+            transclude: true,
+            link: function ($scope, element, attrs, topBar) {
+                element.bind('click', function(event) {
+                    var li = closest(angular.element(event.currentTarget), 'li');
+                    if(!li.hasClass('back') && !li.hasClass('has-dropdown')) {
+                        topBar.toggle();
+                    }
+                });
+
+                $scope.$on('$destroy', function(){
+                    element.unbind('click');
+                });
+            }
+        };
+    }])
+    .directive('topBarSection', ['$compile', 'closest', function ($compile, closest) {
+        return {
+            scope: {},
+            require: '^topBar',
+            restrict: 'EA',
+            replace: true,
+            templateUrl: 'template/topbar/top-bar-section.html',
+            transclude: true,
+            link: function ($scope, element, attrs, topBar) {
+                var section = element;
+                
+                $scope.reset = function(){
+                    angular.element(section[0].querySelectorAll('li.moved')).removeClass('moved');
+                };
+
+                $scope.move = function(dir, index){
+                    if(dir === 'left'){
+                        section.css({"left": index * -100 + '%'});
+                    }
+                    else {
+                        section.css({"right": index * -100 + '%'});
+                    }
+                };
+
+                topBar.addSection($scope);
+
+                $scope.$on("$destroy", function(){
+                    topBar.removeSection($scope);
+                });
+
+                // Top level links close menu on click
+                var links = section[0].querySelectorAll('li>a');
+                angular.forEach(links, function(link){
+                    var $link = angular.element(link);
+                    var li = closest($link, 'li');
+                    if(li.hasClass('has-dropdown') || li.hasClass('back') || li.hasClass('title')){
+                        return;
+                    }
+
+                    $link.bind('click', function(){
+                        topBar.toggle(false);
+                    });
+
+                    $scope.$on('$destroy', function(){
+                        $link.bind('click');
+                    });
+                });
+
+            }
+        };
+    }])
+    .directive('hasDropdown', [function () {
+        return {
+            scope: {},
+            require: ['^topBar'],
+            restrict: 'A',
+            templateUrl: 'template/topbar/has-dropdown.html',
+            replace: true,
+            transclude: true,
+            link: function ($scope, element, attrs, ctrls) {
+                var topBar = ctrls[0];
+                var topBarSection = ctrls[1];
+
+                $scope.triggerLink = element.children('a')[0];
+
+                var $link = angular.element($scope.triggerLink);
+
+                $link.bind('click', function(event){
+                    topBar.forward(event);
+                });
+                $scope.$on('$destroy', function(){
+                    $link.unbind('click');
+                });
+
+                element.bind('mouseenter', function() {
+                    if(topBar.settings.isHover && !topBar.breakpoint()){
+                        element.addClass('not-click');
+                    }
+                });
+                element.bind('click', function(event) {
+                    if(!topBar.settings.isHover && !topBar.breakpoint()){
+                        element.toggleClass('not-click');
+                    }
+                });
+                
+                element.bind('mouseleave', function() {
+                    element.removeClass('not-click');
+                });
+
+                $scope.$on('$destroy', function(){
+                    element.unbind('click');
+                    element.unbind('mouseenter');
+                    element.unbind('mouseleave');
+                    topBarSection.removeDropdown($scope);
+                });
+            },
+            controller: ['$window', '$scope', function($window, $scope) {
+                this.triggerLink = $scope.triggerLink;
+            }]
+        };
+    }])
+    .directive('topBarDropdown', ['$compile', function ($compile) {
+        return {
+            scope: {},
+            require: ['^topBar', '^hasDropdown'],
+            restrict: 'A',
+            replace: true,
+            templateUrl: 'template/topbar/top-bar-dropdown.html',
+            transclude: true,
+            link: function ($scope, element, attrs, ctrls) {
+
+                var topBar = ctrls[0];
+                var hasDropdown = ctrls[1];
+
+                var $link = angular.element(hasDropdown.triggerLink);
+                var url = $link.attr('href');
+
+                $scope.linkText = $link.text();
+
+                $scope.back = function(event){
+                    topBar.back(event);
+                };
+
+                // Add back link
+                if (topBar.settings.customBackText) {
+                    $scope.backText = topBar.settings.backText;
+                } else {
+                    $scope.backText = '&laquo; ' + $link.html();
+                }
+
+                var $titleLi;
+                if (topBar.settings.mobileShowParentLink && url && url.length > 1) {
+                    $titleLi = angular.element('<li class="title back js-generated">' +
+                        '<h5><a href="#" ng-click="back($event);">{{backText}}</a></h5></li>' +
+                        '<li><a class="parent-link js-generated" href="' +
+                        url + '">{{linkText}}</a></li>');
+                } else {
+                    $titleLi = angular.element('<li class="title back js-generated">' +
+                        '<h5><a href="" ng-click="back($event);">{{backText}}</a></h5></li>');
+                }
+
+                $compile($titleLi)($scope);
+                element.prepend($titleLi);
+            }
+        };
+    }]);
 angular.module( 'mm.foundation.tour', [ 'mm.foundation.position', 'mm.foundation.tooltip' ] )
 
 .service( '$tour', [ '$window', function ( $window ) {
