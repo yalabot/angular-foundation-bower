@@ -1,9 +1,10 @@
 /*
  * angular-mm-foundation
- * http://madmimi.github.io/angular-foundation/
+ * http://pineconellc.github.io/angular-foundation/
 
- * Version: 0.3.0 - 2014-07-14
+ * Version: 0.3.1 - 2014-08-19
  * License: MIT
+ * (c) Pinecone, LLC
  */
 angular.module("mm.foundation", ["mm.foundation.tpls", "mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.interchange","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.topbar","mm.foundation.tour","mm.foundation.typeahead"]);
 angular.module("mm.foundation.tpls", ["template/accordion/accordion-group.html","template/accordion/accordion.html","template/alert/alert.html","template/modal/backdrop.html","template/modal/window.html","template/pagination/pager.html","template/pagination/pagination.html","template/tooltip/tooltip-html-unsafe-popup.html","template/tooltip/tooltip-popup.html","template/popover/popover.html","template/progressbar/bar.html","template/progressbar/progress.html","template/progressbar/progressbar.html","template/rating/rating.html","template/tabs/tab.html","template/tabs/tabset.html","template/topbar/has-dropdown.html","template/topbar/toggle-top-bar.html","template/topbar/top-bar-dropdown.html","template/topbar/top-bar-section.html","template/topbar/top-bar.html","template/tour/tour.html","template/typeahead/typeahead-match.html","template/typeahead/typeahead-popup.html"]);
@@ -862,8 +863,15 @@ angular.module('mm.foundation.modal', ['mm.foundation.transition'])
         $timeout(function () {
           // trigger CSS transitions
           scope.animate = true;
-          // focus a freshly-opened modal
-          element[0].focus();
+
+          // If the modal contains any autofocus elements refocus onto the first one
+          if (element[0].querySelectorAll('[autofocus]').length > 0) {
+            element[0].querySelectorAll('[autofocus]')[0].focus();
+          }
+          else{
+          // otherwise focus the freshly-opened modal
+            element[0].focus();
+          }
         });
       }
     };
@@ -2338,6 +2346,64 @@ angular.module('mm.foundation.tabs', [])
 
 
 angular.module("mm.foundation.topbar", [])
+    .factory('mediaQueries', ['$document', '$window', function($document, $window){
+        var head = angular.element($document[0].querySelector('head'));
+        head.append('<meta class="foundation-mq-topbar" />');
+        head.append('<meta class="foundation-mq-small" />');
+        head.append('<meta class="foundation-mq-medium" />');
+        head.append('<meta class="foundation-mq-large" />');
+
+        // MatchMedia for IE <= 9
+        var matchMedia = $window.matchMedia || (function(doc, undefined){
+            var bool,
+                docElem = doc.documentElement,
+                refNode = docElem.firstElementChild || docElem.firstChild,
+                // fakeBody required for <FF4 when executed in <head>
+                fakeBody = doc.createElement("body"),
+                div = doc.createElement("div");
+
+            div.id = "mq-test-1";
+            div.style.cssText = "position:absolute;top:-100em";
+            fakeBody.style.background = "none";
+            fakeBody.appendChild(div);
+
+            return function (q) {
+                div.innerHTML = "&shy;<style media=\"" + q + "\"> #mq-test-1 { width: 42px; }</style>";
+                docElem.insertBefore(fakeBody, refNode);
+                bool = div.offsetWidth === 42;
+                docElem.removeChild(fakeBody);
+                return {
+                    matches: bool,
+                    media: q
+                };
+            };
+
+        }($document[0]));
+
+        var regex = /^[\/\\'"]+|(;\s?})+|[\/\\'"]+$/g;
+        var queries = {
+            topbar: getComputedStyle(head[0].querySelector('meta.foundation-mq-topbar')).fontFamily.replace(regex, ''),
+            small : getComputedStyle(head[0].querySelector('meta.foundation-mq-small')).fontFamily.replace(regex, ''),
+            medium : getComputedStyle(head[0].querySelector('meta.foundation-mq-medium')).fontFamily.replace(regex, ''),
+            large : getComputedStyle(head[0].querySelector('meta.foundation-mq-large')).fontFamily.replace(regex, '')
+        };
+
+        return {
+            topbarBreakpoint: function () {
+                return !matchMedia(queries.topbar).matches;
+            },
+            small: function () {
+                return matchMedia(queries.small).matches;
+            },
+            medium: function () {
+                return matchMedia(queries.medium).matches;
+            },
+            large: function () {
+                return matchMedia(queries.large).matches;
+            }
+        };
+
+    }])
     .factory('closest', [function(){
         return function(el, selector) {
             var matchesSelector = function (node, selector) {
@@ -2358,47 +2424,8 @@ angular.module("mm.foundation.topbar", [])
             return false;
         };
     }])
-    .directive('topBar', ['$timeout','$compile', '$window', '$document',
-        function ($timeout, $compile, $window, $document) {
-
-        var win = angular.element($window);
-        var head = angular.element($document[0].querySelector('head'));
-
-        head.append('<meta class="foundation-mq-topbar" />');
-        head.append('<meta class="foundation-mq-small" />');
-        head.append('<meta class="foundation-mq-medium" />');
-        head.append('<meta class="foundation-mq-large" />');
-
-        // MatchMedia for IE < 9
-        var matchMedia = $window.matchMedia || (function( doc, undefined ) {
-            var bool,
-                docElem = doc.documentElement,
-                refNode = docElem.firstElementChild || docElem.firstChild,
-                // fakeBody required for <FF4 when executed in <head>
-                fakeBody = doc.createElement( "body" ),
-                div = doc.createElement( "div" );
-
-            div.id = "mq-test-1";
-            div.style.cssText = "position:absolute;top:-100em";
-            fakeBody.style.background = "none";
-            fakeBody.appendChild(div);
-
-            return function (q) {
-                div.innerHTML = "&shy;<style media=\"" + q + "\"> #mq-test-1 { width: 42px; }</style>";
-
-                docElem.insertBefore( fakeBody, refNode );
-                bool = div.offsetWidth === 42;
-                docElem.removeChild( fakeBody );
-
-                return {
-                    matches: bool,
-                    media: q
-                };
-
-            };
-
-        }( $document[0] ));
-
+    .directive('topBar', ['$timeout','$compile', '$window', '$document', 'mediaQueries',
+            function ($timeout, $compile, $window, $document, mediaQueries) {
         return {
             scope: {
                 stickyClass : '@',
@@ -2416,25 +2443,17 @@ angular.module("mm.foundation.topbar", [])
             link: function ($scope, element, attrs) {
                 var topbar = $scope.topbar = element;
                 var topbarContainer = topbar.parent();
-                var regex = /^[\/\\'"]+|(;\s?})+|[\/\\'"]+$/g;
-                var mediaQueries = $scope.mediaQueries = {
-                    topbar: getComputedStyle(head[0].querySelector('meta.foundation-mq-topbar')).fontFamily.replace(regex, ''),
-                    small : getComputedStyle(head[0].querySelector('meta.foundation-mq-small')).fontFamily.replace(regex, ''),
-                    medium : getComputedStyle(head[0].querySelector('meta.foundation-mq-medium')).fontFamily.replace(regex, ''),
-                    large : getComputedStyle(head[0].querySelector('meta.foundation-mq-large')).fontFamily.replace(regex, '')
-                };
                 var body = angular.element($document[0].querySelector('body'));
-
 
                 var isSticky = $scope.isSticky = function () {
                     var sticky = topbarContainer.hasClass($scope.settings.stickyClass);
                     if (sticky && $scope.settings.stickyOn === 'all') {
                         return true;
-                    } else if (sticky && small() && $scope.settings.stickyOn === 'small') {
+                    } else if (sticky && mediaQueries.small() && $scope.settings.stickyOn === 'small') {
                         return true;
-                    } else if (sticky && medium() && $scope.settings.stickyOn === 'medium') {
+                    } else if (sticky && mediaQueries.medium() && $scope.settings.stickyOn === 'medium') {
                         return true;
-                    } else if (sticky && large() && $scope.settings.stickyOn === 'large') {
+                    } else if (sticky && mediaQueries.large() && $scope.settings.stickyOn === 'large') {
                         return true;
                     }
                     return false;
@@ -2444,26 +2463,24 @@ angular.module("mm.foundation.topbar", [])
                     if (!$scope.stickyTopbar || !$scope.isSticky()) {
                         return;
                     }
-                    
-                    var $class = angular.element($document[0].querySelector('.' + $scope.settings.stickyClass));
 
+                    var $class = angular.element($document[0].querySelector('.' + $scope.settings.stickyClass));
                     var distance = stickyoffset;
-                    if (true) {
-                        if (win.scrollTop() > distance && !$class.hasClass('fixed')) {
-                            $class.addClass('fixed');
-                            body.css('padding-top', $scope.originalHeight + 'px');
-                        } else if (win.scrollTop() <= distance && $class.hasClass('fixed')) {
-                            $class.removeClass('fixed');
-                            body.css('padding-top', '');
-                        }
-                    }  
+
+                    if ($window.scrollY > distance && !$class.hasClass('fixed')) {
+                        $class.addClass('fixed');
+                        body.css('padding-top', $scope.originalHeight + 'px');
+                    } else if ($window.scrollY <= distance && $class.hasClass('fixed')) {
+                        $class.removeClass('fixed');
+                        body.css('padding-top', '');
+                    }
                 };
 
                 $scope.toggle = function(on) {
-                    if(!$scope.breakpoint()){
+                    if(!mediaQueries.topbarBreakpoint()){
                         return false;
                     }
-                    
+
                     var expand = (on === undefined) ? !topbar.hasClass('expanded') : on;
 
                     if (expand){
@@ -2521,25 +2538,36 @@ angular.module("mm.foundation.topbar", [])
                     }
                 });
 
-                win.bind('resize', function(){
+                var lastBreakpoint = mediaQueries.topbarBreakpoint();             
+
+                angular.element($window).bind('resize', function(){
+                    var currentBreakpoint = mediaQueries.topbarBreakpoint();
+                    if(lastBreakpoint === currentBreakpoint){
+                        return;
+                    }
+                    lastBreakpoint = mediaQueries.topbarBreakpoint();
+
+                    topbar.removeClass('expanded');
+                    topbar.parent().removeClass('expanded');
+                    $scope.height = '';
+
                     var sections = angular.element(topbar[0].querySelectorAll('section'));
                     angular.forEach(sections, function(section){
                         angular.element(section.querySelectorAll('li.moved')).removeClass('moved');
                     });
-                    topbar.removeClass('expanded');
-                    $scope.height = '';
+
                     $scope.$apply();
-                });
+                 });
 
                 // update sticky positioning
-                win.bind("scroll", function() {
+                angular.element($window).bind("scroll", function() {
                     updateStickyPositioning();
                     $scope.$apply();
                 });
 
                 $scope.$on('$destroy', function(){
-                    win.unbind("scroll");
-                    win.unbind("resize");
+                    angular.element($window).unbind("scroll");
+                    angular.element($window).unbind("resize");
                 });
 
                 if (topbarContainer.hasClass('fixed')) {
@@ -2548,7 +2576,6 @@ angular.module("mm.foundation.topbar", [])
 
             },
             controller: ['$window', '$scope', 'closest', function($window, $scope, closest) {
-            
                 $scope.settings = {};
                 $scope.settings.stickyClass = $scope.stickyClass || 'sticky';
                 $scope.settings.backText = $scope.backText || 'Back';
@@ -2571,21 +2598,6 @@ angular.module("mm.foundation.topbar", [])
                     return height;
                 };
 
-                var breakpoint = $scope.breakpoint = this.breakpoint = function () {
-                    return !matchMedia($scope.mediaQueries.topbar).matches;
-                };
-
-                var small = function () {
-                    return $matchMedia($scope.mediaQueries.small).matches;
-                };
-
-                var medium = function () {
-                    return $matchMedia($scope.mediaQueries.medium).matches;
-                };
-
-                var large = function () {
-                    return $matchMedia($scope.mediaQueries.large).matches;
-                };
 
                 var sections = [];
 
@@ -2619,10 +2631,10 @@ angular.module("mm.foundation.topbar", [])
                 };
 
                 this.back = function(event) {
-                    if($scope.index < 1 || !breakpoint()){
+                    if($scope.index < 1 || !mediaQueries.topbarBreakpoint()){
                         return;
                     }
-                    
+
                     var $link = angular.element(event.currentTarget);
                     var $movedLi = closest($link, 'li.moved');
                     var $previousLevelUl = $movedLi.parent();
@@ -2640,7 +2652,7 @@ angular.module("mm.foundation.topbar", [])
                 };
 
                 this.forward = function(event) {
-                    if(!breakpoint()){
+                    if(!mediaQueries.topbarBreakpoint()){
                         return false;
                     }
 
@@ -2687,7 +2699,7 @@ angular.module("mm.foundation.topbar", [])
             transclude: true,
             link: function ($scope, element, attrs, topBar) {
                 var section = element;
-                
+
                 $scope.reset = function(){
                     angular.element(section[0].querySelectorAll('li.moved')).removeClass('moved');
                 };
@@ -2728,18 +2740,15 @@ angular.module("mm.foundation.topbar", [])
             }
         };
     }])
-    .directive('hasDropdown', [function () {
+    .directive('hasDropdown', ['mediaQueries', function (mediaQueries) {
         return {
             scope: {},
-            require: ['^topBar'],
+            require: '^topBar',
             restrict: 'A',
             templateUrl: 'template/topbar/has-dropdown.html',
             replace: true,
             transclude: true,
-            link: function ($scope, element, attrs, ctrls) {
-                var topBar = ctrls[0];
-                var topBarSection = ctrls[1];
-
+            link: function ($scope, element, attrs, topBar) {
                 $scope.triggerLink = element.children('a')[0];
 
                 var $link = angular.element($scope.triggerLink);
@@ -2752,16 +2761,16 @@ angular.module("mm.foundation.topbar", [])
                 });
 
                 element.bind('mouseenter', function() {
-                    if(topBar.settings.isHover && !topBar.breakpoint()){
+                    if(topBar.settings.isHover && !mediaQueries.topbarBreakpoint()){
                         element.addClass('not-click');
                     }
                 });
                 element.bind('click', function(event) {
-                    if(!topBar.settings.isHover && !topBar.breakpoint()){
+                    if(!topBar.settings.isHover && !mediaQueries.topbarBreakpoint()){
                         element.toggleClass('not-click');
                     }
                 });
-                
+
                 element.bind('mouseleave', function() {
                     element.removeClass('not-click');
                 });
@@ -2770,7 +2779,6 @@ angular.module("mm.foundation.topbar", [])
                     element.unbind('click');
                     element.unbind('mouseenter');
                     element.unbind('mouseleave');
-                    topBarSection.removeDropdown($scope);
                 });
             },
             controller: ['$window', '$scope', function($window, $scope) {
@@ -2823,6 +2831,7 @@ angular.module("mm.foundation.topbar", [])
             }
         };
     }]);
+
 angular.module( 'mm.foundation.tour', [ 'mm.foundation.position', 'mm.foundation.tooltip' ] )
 
 .service( '$tour', [ '$window', function ( $window ) {
@@ -2944,7 +2953,7 @@ angular.module('mm.foundation.typeahead', ['mm.foundation.position', 'mm.foundat
   return {
     parse:function (input) {
 
-      var match = input.match(TYPEAHEAD_REGEXP), modelMapper, viewMapper, source;
+      var match = input.match(TYPEAHEAD_REGEXP);
       if (!match) {
         throw new Error(
           "Expected typeahead specification in form of '_modelValue_ (as _label_)? for _item_ in _collection_'" +
@@ -3073,14 +3082,12 @@ angular.module('mm.foundation.typeahead', ['mm.foundation.position', 'mm.foundat
       //we need to propagate user's query so we can higlight matches
       scope.query = undefined;
 
-      //Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later 
+      //Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later
       var timeoutPromise;
 
       //plug into $parsers pipeline to open a typeahead on view changes initiated from DOM
       //$parsers kick-in on all the changes coming from the view as well as manually triggered by $setViewValue
       modelCtrl.$parsers.unshift(function (inputValue) {
-
-        hasFocus = true;
 
         if (inputValue && inputValue.length >= minSearch) {
           if (waitTime > 0) {
@@ -3190,6 +3197,10 @@ angular.module('mm.foundation.typeahead', ['mm.foundation.position', 'mm.foundat
 
       element.bind('blur', function (evt) {
         hasFocus = false;
+      });
+
+      element.bind('focus', function (evt) {
+        hasFocus = true;
       });
 
       // Keep reference to click handler to unbind it.
