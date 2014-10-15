@@ -2,11 +2,11 @@
  * angular-mm-foundation
  * http://pineconellc.github.io/angular-foundation/
 
- * Version: 0.3.1 - 2014-08-19
+ * Version: 0.4.0 - 2014-10-15
  * License: MIT
  * (c) Pinecone, LLC
  */
-angular.module("mm.foundation", ["mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.dropdownToggle","mm.foundation.interchange","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.topbar","mm.foundation.tour","mm.foundation.typeahead"]);
+angular.module("mm.foundation", ["mm.foundation.accordion","mm.foundation.alert","mm.foundation.bindHtml","mm.foundation.buttons","mm.foundation.position","mm.foundation.mediaQueries","mm.foundation.dropdownToggle","mm.foundation.interchange","mm.foundation.transition","mm.foundation.modal","mm.foundation.offcanvas","mm.foundation.pagination","mm.foundation.tooltip","mm.foundation.popover","mm.foundation.progressbar","mm.foundation.rating","mm.foundation.tabs","mm.foundation.topbar","mm.foundation.tour","mm.foundation.typeahead"]);
 angular.module('mm.foundation.accordion', [])
 
 .constant('accordionConfig', {
@@ -331,6 +331,66 @@ angular.module('mm.foundation.position', [])
     };
   }]);
 
+angular.module("mm.foundation.mediaQueries", [])
+    .factory('matchMedia', ['$document', '$window', function($document, $window) {
+        // MatchMedia for IE <= 9
+        return $window.matchMedia || (function matchMedia(doc, undefined){
+            var bool,
+                docElem = doc.documentElement,
+                refNode = docElem.firstElementChild || docElem.firstChild,
+                // fakeBody required for <FF4 when executed in <head>
+                fakeBody = doc.createElement("body"),
+                div = doc.createElement("div");
+
+            div.id = "mq-test-1";
+            div.style.cssText = "position:absolute;top:-100em";
+            fakeBody.style.background = "none";
+            fakeBody.appendChild(div);
+
+            return function (q) {
+                div.innerHTML = "&shy;<style media=\"" + q + "\"> #mq-test-1 { width: 42px; }</style>";
+                docElem.insertBefore(fakeBody, refNode);
+                bool = div.offsetWidth === 42;
+                docElem.removeChild(fakeBody);
+                return {
+                    matches: bool,
+                    media: q
+                };
+            };
+
+        }($document[0]));
+    }])
+    .factory('mediaQueries', ['$document', 'matchMedia', function($document, matchMedia) {
+        var head = angular.element($document[0].querySelector('head'));
+        head.append('<meta class="foundation-mq-topbar" />');
+        head.append('<meta class="foundation-mq-small" />');
+        head.append('<meta class="foundation-mq-medium" />');
+        head.append('<meta class="foundation-mq-large" />');
+
+        var regex = /^[\/\\'"]+|(;\s?})+|[\/\\'"]+$/g;
+        var queries = {
+            topbar: getComputedStyle(head[0].querySelector('meta.foundation-mq-topbar')).fontFamily.replace(regex, ''),
+            small : getComputedStyle(head[0].querySelector('meta.foundation-mq-small')).fontFamily.replace(regex, ''),
+            medium : getComputedStyle(head[0].querySelector('meta.foundation-mq-medium')).fontFamily.replace(regex, ''),
+            large : getComputedStyle(head[0].querySelector('meta.foundation-mq-large')).fontFamily.replace(regex, '')
+        };
+
+        return {
+            topbarBreakpoint: function () {
+                return !matchMedia(queries.topbar).matches;
+            },
+            small: function () {
+                return matchMedia(queries.small).matches;
+            },
+            medium: function () {
+                return matchMedia(queries.medium).matches;
+            },
+            large: function () {
+                return matchMedia(queries.large).matches;
+            }
+        };
+    }]);
+
 /*
  * dropdownToggle - Provides dropdown menu functionality
  * @restrict class or attribute
@@ -343,9 +403,15 @@ angular.module('mm.foundation.position', [])
      </li>
    </ul>
  */
-angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
+angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position', 'mm.foundation.mediaQueries' ])
 
-.directive('dropdownToggle', ['$document', '$location', '$position', function ($document, $location, $position) {
+.controller('DropdownToggleController', ['$scope', '$attrs', 'mediaQueries', function($scope, $attrs, mediaQueries) {
+  this.small = function() {
+    return mediaQueries.small() && !mediaQueries.medium();
+  };
+}])
+
+.directive('dropdownToggle', ['$document', '$window', '$location', '$position', function ($document, $window, $location, $position) {
   var openElement = null,
       closeMenu   = angular.noop;
   return {
@@ -353,7 +419,8 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
     scope: {
       dropdownToggle: '@'
     },
-    link: function(scope, element, attrs) {
+    controller: 'DropdownToggleController',
+    link: function(scope, element, attrs, controller) {
       var dropdown = angular.element($document[0].querySelector(scope.dropdownToggle));
 
       scope.$watch('$location.path', function() { closeMenu(); });
@@ -374,10 +441,31 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
           var offset = $position.offset(element);
           var parentOffset = $position.offset(angular.element(dropdown[0].offsetParent));
 
-          dropdown.css({
-            left: offset.left - parentOffset.left + 'px',
-            top: offset.top - parentOffset.top + offset.height + 'px'
-          });
+          var dropdownWidth = dropdown.prop('offsetWidth');
+
+          var css = {
+              top: offset.top - parentOffset.top + offset.height + 'px'
+          };
+
+          if (controller.small()) {
+            css.left = Math.max((parentOffset.width - dropdownWidth) / 2, 8) + 'px';
+            css.position = 'absolute';
+            css.width = '95%';
+            css['max-width'] = 'none';
+          }
+          else {
+            var left = Math.round(offset.left - parentOffset.left);
+            var rightThreshold = $window.innerWidth - dropdownWidth - 8;
+            if (left > rightThreshold) {
+                left = rightThreshold;
+                dropdown.removeClass('left').addClass('right');
+            }
+            css.left = left + 'px';
+            css.position = null;
+            css['max-width'] = null;
+          }
+
+          dropdown.css(css);
 
           openElement = element;
           closeMenu = function (event) {
@@ -405,7 +493,7 @@ angular.module('mm.foundation.dropdownToggle', [ 'mm.foundation.position' ])
  * Package containing all services and directives
  * about the `interchange` module
  */
-angular.module('mm.foundation.interchange', [])
+angular.module('mm.foundation.interchange', ['mm.foundation.mediaQueries'])
 
   /**
    * @ngdoc function
@@ -491,7 +579,7 @@ angular.module('mm.foundation.interchange', [])
    *
    * Tools to help with the `interchange` module.
    */
-  .factory('interchangeTools', ['$window', 'interchangeQueries', function ($window, namedQueries) {
+  .factory('interchangeTools', ['$window', 'matchMedia', 'interchangeQueries', function ($window, matchMedia, namedQueries) {
 
     /**
      * @ngdoc method
@@ -555,7 +643,7 @@ angular.module('mm.foundation.interchange', [])
       var file, media, match;
       for (file in files) {
         media = namedQueries[file] || file;
-        match = $window.matchMedia(media);
+        match = matchMedia(media);
         if (match.matches) {
           return files[file];
         }
@@ -869,15 +957,15 @@ angular.module('mm.foundation.modal', ['mm.foundation.transition'])
           }
           else{
           // otherwise focus the freshly-opened modal
-            element[0].focus();
+            element[0].querySelector('div').focus();
           }
         });
       }
     };
   }])
 
-  .factory('$modalStack', ['$transition', '$timeout', '$document', '$compile', '$rootScope', '$$stackedMap',
-    function ($transition, $timeout, $document, $compile, $rootScope, $$stackedMap) {
+  .factory('$modalStack', ['$window', '$transition', '$timeout', '$document', '$compile', '$rootScope', '$$stackedMap',
+    function ($window, $transition, $timeout, $document, $compile, $rootScope, $$stackedMap) {
 
       var OPENED_MODAL_CLASS = 'modal-open';
 
@@ -992,7 +1080,16 @@ angular.module('mm.foundation.modal', ['mm.foundation.transition'])
           body.append(backdropDomEl);
         }
           
-        var angularDomEl = angular.element('<div modal-window></div>');
+        // Create a faux modal div just to measure its
+        // distance to top
+        var faux = angular.element('<div class="reveal-modal" style="z-index:-1""></div>');
+        body.append(faux[0]);
+        var marginTop = parseInt(getComputedStyle(faux[0]).top);
+        faux.remove();
+
+        var openAt = $window.scrollY + marginTop;
+
+        var angularDomEl = angular.element('<div modal-window style="visibility: visible; top:' + openAt +'px;"></div>');
         angularDomEl.attr('window-class', modal.windowClass);
         angularDomEl.attr('index', openedWindows.length() - 1);
         angularDomEl.attr('animate', 'animate');
@@ -1769,9 +1866,13 @@ angular.module( 'mm.foundation.tooltip', [ 'mm.foundation.position', 'mm.foundat
             });
 
             var unregisterTriggers = function() {
-              if (hasRegisteredTriggers) {
-                element.unbind( triggers.show, showTooltipBind );
-                element.unbind( triggers.hide, hideTooltipBind );
+              if ( hasRegisteredTriggers ) {
+                if ( angular.isFunction( triggers.show ) ) {
+                  unregisterTriggerFunction();
+                } else {
+                  element.unbind( triggers.show, showTooltipBind );
+                  element.unbind( triggers.hide, hideTooltipBind );
+                }
               }
             };
 
@@ -2344,65 +2445,7 @@ angular.module('mm.foundation.tabs', [])
 ;
 
 
-angular.module("mm.foundation.topbar", [])
-    .factory('mediaQueries', ['$document', '$window', function($document, $window){
-        var head = angular.element($document[0].querySelector('head'));
-        head.append('<meta class="foundation-mq-topbar" />');
-        head.append('<meta class="foundation-mq-small" />');
-        head.append('<meta class="foundation-mq-medium" />');
-        head.append('<meta class="foundation-mq-large" />');
-
-        // MatchMedia for IE <= 9
-        var matchMedia = $window.matchMedia || (function(doc, undefined){
-            var bool,
-                docElem = doc.documentElement,
-                refNode = docElem.firstElementChild || docElem.firstChild,
-                // fakeBody required for <FF4 when executed in <head>
-                fakeBody = doc.createElement("body"),
-                div = doc.createElement("div");
-
-            div.id = "mq-test-1";
-            div.style.cssText = "position:absolute;top:-100em";
-            fakeBody.style.background = "none";
-            fakeBody.appendChild(div);
-
-            return function (q) {
-                div.innerHTML = "&shy;<style media=\"" + q + "\"> #mq-test-1 { width: 42px; }</style>";
-                docElem.insertBefore(fakeBody, refNode);
-                bool = div.offsetWidth === 42;
-                docElem.removeChild(fakeBody);
-                return {
-                    matches: bool,
-                    media: q
-                };
-            };
-
-        }($document[0]));
-
-        var regex = /^[\/\\'"]+|(;\s?})+|[\/\\'"]+$/g;
-        var queries = {
-            topbar: getComputedStyle(head[0].querySelector('meta.foundation-mq-topbar')).fontFamily.replace(regex, ''),
-            small : getComputedStyle(head[0].querySelector('meta.foundation-mq-small')).fontFamily.replace(regex, ''),
-            medium : getComputedStyle(head[0].querySelector('meta.foundation-mq-medium')).fontFamily.replace(regex, ''),
-            large : getComputedStyle(head[0].querySelector('meta.foundation-mq-large')).fontFamily.replace(regex, '')
-        };
-
-        return {
-            topbarBreakpoint: function () {
-                return !matchMedia(queries.topbar).matches;
-            },
-            small: function () {
-                return matchMedia(queries.small).matches;
-            },
-            medium: function () {
-                return matchMedia(queries.medium).matches;
-            },
-            large: function () {
-                return matchMedia(queries.large).matches;
-            }
-        };
-
-    }])
+angular.module("mm.foundation.topbar", ['mm.foundation.mediaQueries'])
     .factory('closest', [function(){
         return function(el, selector) {
             var matchesSelector = function (node, selector) {
