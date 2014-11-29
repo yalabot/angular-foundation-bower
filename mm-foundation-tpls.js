@@ -2,7 +2,7 @@
  * angular-mm-foundation
  * http://pineconellc.github.io/angular-foundation/
 
- * Version: 0.5.0 - 2014-11-20
+ * Version: 0.5.1 - 2014-11-29
  * License: MIT
  * (c) Pinecone, LLC
  */
@@ -1103,10 +1103,12 @@ angular.module('mm.foundation.modal', ['mm.foundation.transition'])
         // distance to top
         var faux = angular.element('<div class="reveal-modal" style="z-index:-1""></div>');
         body.append(faux[0]);
-        var marginTop = parseInt(getComputedStyle(faux[0]).top);
+        var marginTop = parseInt(getComputedStyle(faux[0]).top) || 0;
         faux.remove();
 
-        var openAt = $window.scrollY + marginTop;
+        // Using pageYOffset instead of scrollY to ensure compatibility with IE
+        var scrollY = $window.pageYOffset || 0;
+        var openAt = scrollY + marginTop;
 
         var angularDomEl = angular.element('<div modal-window style="visibility: visible; top:' + openAt +'px;"></div>');
         angularDomEl.attr('window-class', modal.windowClass);
@@ -2537,10 +2539,10 @@ angular.module("mm.foundation.topbar", ['mm.foundation.mediaQueries'])
                     var $class = angular.element($document[0].querySelector('.' + $scope.settings.stickyClass));
                     var distance = stickyoffset;
 
-                    if ($window.scrollY > distance && !$class.hasClass('fixed')) {
+                    if ($window.pageYOffset > distance && !$class.hasClass('fixed')) {
                         $class.addClass('fixed');
                         body.css('padding-top', $scope.originalHeight + 'px');
-                    } else if ($window.scrollY <= distance && $class.hasClass('fixed')) {
+                    } else if ($window.pageYOffset <= distance && $class.hasClass('fixed')) {
                         $class.removeClass('fixed');
                         body.css('padding-top', '');
                     }
@@ -2608,7 +2610,7 @@ angular.module("mm.foundation.topbar", ['mm.foundation.mediaQueries'])
                     }
                 });
 
-                var lastBreakpoint = mediaQueries.topbarBreakpoint();             
+                var lastBreakpoint = mediaQueries.topbarBreakpoint();
 
                 angular.element($window).bind('resize', function(){
                     var currentBreakpoint = mediaQueries.topbarBreakpoint();
